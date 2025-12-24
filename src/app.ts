@@ -32,15 +32,7 @@ dotenv.config();
 // ✅ Create Express app
 const app = express();
 
-app.post(
-  "/webhook",
-  express.json({
-    verify: (req: any, res, buf) => {
-      req.rawBody = buf;
-    }
-  }),
-  paystackWebhook
-);
+app.post("/webhook", express.raw({ type: "*/*" }), paystackWebhook);
 
 // ✅ Middleware
 app.use(cookieParser());
