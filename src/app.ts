@@ -14,7 +14,6 @@ import { SupportRoute } from "./app/modules/support/support.routes";
 import { NewsletterRoute } from "./app/modules/newsletter/newsletter.routes";
 import { CouponRoute } from "./app/modules/coupon/coupon.routes";
 import { OrderRoute } from "./app/modules/order/order.routes";
-import { PaymentsRoutes } from "./app/modules/payments/payments.routes";
 import { ShipmentRouter } from "./app/modules/shipment/shipment.router";
 import { AFSPayment } from "./app/modules/afsPayment/afsPayment.routes";
 import { WalletRoutes } from "./app/modules/wallet/wallet.routes";
@@ -25,11 +24,23 @@ import { PayoutRoutes } from "./app/modules/payout/payout.routes";
 import { CMSRouter } from "./app/modules/cms/cms.routes";
 import { CartRoutes } from "./app/modules/cart/cart.routes";
 import { paystackRouter } from "./app/modules/paystack/paystack.route";
+import paymentRouter from "./app/modules/payments/payments.routes";
+import { paystackWebhook } from "./app/modules/payments/payments.controller";
 
 dotenv.config();
 
 // ✅ Create Express app
 const app = express();
+
+app.post(
+  "/webhook",
+  express.json({
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf;
+    }
+  }),
+  paystackWebhook
+);
 
 // ✅ Middleware
 app.use(cookieParser());
@@ -50,6 +61,9 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ Swagger setup
 setupSwagger(app);
 
+
+
+
 // ✅ Routes
 app.use("/api/v1/users", UserRoutes);
 app.use("/api/v1/products", ProductRoutes);
@@ -60,7 +74,7 @@ app.use("/api/v1/support", SupportRoute);
 app.use("/api/v1/newsletter", NewsletterRoute);
 app.use("/api/v1/coupons", CouponRoute);
 app.use("/api/v1/orders", OrderRoute);
-// app.use("/api/v1/payment", PaymentsRoutes)
+app.use("/api/v1/payment", paymentRouter)
 app.use("/api/v1/shipment", ShipmentRouter)
 app.use('/api/v1/afspay', AFSPayment)
 app.use("/api/v1/wallet", WalletRoutes);
@@ -70,7 +84,7 @@ app.use("/api/v1/shipping", shippingRoutes)
 app.use("/api/v1/payouts", PayoutRoutes)
 app.use("/api/v1/cms", CMSRouter)
 app.use("/api/v1/cart", CartRoutes)
-// app.use("/api/v1/payments", paystackRouter)
+app.use("/api/v1/payments", paystackRouter)
 
 
 

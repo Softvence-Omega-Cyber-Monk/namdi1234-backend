@@ -36,8 +36,7 @@ const PaymentSchema: Schema = new Schema(
       index: true,
     },
     sessionId: {
-      type: String,
-      required: true,
+      type: String
     },
     amount: {
       type: Number,
@@ -56,16 +55,9 @@ const PaymentSchema: Schema = new Schema(
       required: true,
       default: 'PENDING',
     },
-    gatewayCode: {
-      type: String,
-    },
     description: {
       type: String,
-    },
-    metadata: {
-      type: Schema.Types.Mixed,
-      default: {},
-    },
+    }
   },
   {
     timestamps: true,
