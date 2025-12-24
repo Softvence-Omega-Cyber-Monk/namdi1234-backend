@@ -28,6 +28,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@paystack/inline-js": "^2.22.7",
     "@types/ejs": "^3.1.5",
     "@types/multer": "^2.0.0",
     "axios": "^1.13.0",

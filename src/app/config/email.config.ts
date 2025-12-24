@@ -11,7 +11,7 @@ export const createEmailTransporter = () : Transporter => {
     })
     transporter.verify((error, success) => {
         if(error){
-            console.error(error)
+            // console.error(error)
         }
         console.log("Email server is ready")
     })
