@@ -7,6 +7,11 @@ const orderProductSchema = new Schema({
     ref: 'Product',
     required: [true, 'Product ID is required']
   },
+  variationId: {
+    type: Schema.Types.ObjectId,
+    ref: 'ProductVariation',
+    default: null
+  },
   quantity: {
     type: Number,
     required: [true, 'Quantity is required'],
@@ -37,6 +42,13 @@ const shippingAddressSchema = new Schema({
     required: [true, 'Mobile number is required'],
     trim: true,
     match: [/^[0-9+\-\s()]+$/, 'Please provide a valid mobile number']
+  },
+  email: {
+    type: String,
+    required: true,
+    trim: true,
+    lowercase: true,
+    match: [/^\S+@\S+\.\S+$/, 'Please provide a valid email']
   },
   country: {
     type: String,
@@ -105,7 +117,7 @@ const paymentHistorySchema = new Schema({
     type: String,
     required: true,
     uppercase: true,
-    default: 'BHD'
+    default: 'NGN'
   },
   paymentStatus: {
     type: String,
@@ -225,11 +237,6 @@ const orderSchema = new Schema<IOrder>(
         message: '{VALUE} is not a valid payment method'
       },
       default: PaymentMethodType.GATEWAY
-    },
-    shippingMethodId: {
-      type: Schema.Types.ObjectId,
-      ref: 'ShipmentCompany',
-      required: [true, 'Shipping method is required']
     },
     transactionId: {
       type: String,

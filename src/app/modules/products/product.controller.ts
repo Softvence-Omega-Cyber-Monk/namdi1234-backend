@@ -3,7 +3,6 @@ import { productService } from "./product.service";
 import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
 
 class ProductController {
-  // ✅ Create a new product with Cloudinary upload
   async createProduct(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
@@ -12,28 +11,32 @@ class ProductController {
 
       // Upload each file manually to Cloudinary
       if (files?.mainImage?.[0])
-        imageUrls.mainImageUrl = await uploadToCloudinary(
-          files.mainImage[0].path
-        );
+        imageUrls.mainImageUrl = await uploadToCloudinary(files.mainImage[0].path);
       if (files?.sideImage?.[0])
-        imageUrls.sideImageUrl = await uploadToCloudinary(
-          files.sideImage[0].path
-        );
+        imageUrls.sideImageUrl = await uploadToCloudinary(files.sideImage[0].path);
       if (files?.sideImage2?.[0])
-        imageUrls.sideImage2Url = await uploadToCloudinary(
-          files.sideImage2[0].path
-        );
+        imageUrls.sideImage2Url = await uploadToCloudinary(files.sideImage2[0].path);
       if (files?.lastImage?.[0])
-        imageUrls.lastImageUrl = await uploadToCloudinary(
-          files.lastImage[0].path
-        );
+        imageUrls.lastImageUrl = await uploadToCloudinary(files.lastImage[0].path);
       if (files?.video?.[0])
         imageUrls.videoUrl = await uploadToCloudinary(files.video[0].path);
+
+      // Parse variations if they exist
+      let variations = [];
+      if (req.body.variations) {
+        try {
+          variations = JSON.parse(req.body.variations);
+        } catch (e) {
+          variations = req.body.variations;
+        }
+      }
 
       // Merge form data with Cloudinary URLs
       const productData = {
         ...req.body,
         ...imageUrls,
+        variations,
+        hasVariations: req.body.hasVariations === 'true' || req.body.hasVariations === true,
         userId,
       };
 
@@ -50,7 +53,6 @@ class ProductController {
     }
   }
 
-  // ✅ Create multiple products (bulk)
   async createBulkProducts(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
@@ -62,7 +64,6 @@ class ProductController {
     }
   }
 
-  // ✅ Get all products
   async getAllProducts(req: Request, res: Response) {
     try {
       const products = await productService.getAllProducts();
@@ -76,10 +77,7 @@ class ProductController {
     try {
       const { productCategory, search } = req.query;
       const page = parseInt(req.query.page as string, 10) || 1;
-      const limit = Math.min(
-        parseInt(req.query.limit as string, 10) || 10,
-        100
-      );
+      const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 100);
 
       const result = await productService.searchProducts({
         productCategory: productCategory as string | undefined,
@@ -103,21 +101,18 @@ class ProductController {
       res.status(500).json({ success: false, message: err.message });
     }
   }
-  // ✅ Get product by ID
+
   async getProductById(req: Request, res: Response) {
     try {
       const product = await productService.getProductById(req.params.id);
       if (!product)
-        return res
-          .status(404)
-          .json({ success: false, message: "Product not found" });
+        return res.status(404).json({ success: false, message: "Product not found" });
       res.json({ success: true, data: product });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
   }
 
-  // ✅ Update product (re-upload changed files)
   async updateProduct(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -126,34 +121,38 @@ class ProductController {
 
       // Upload updated files to Cloudinary (if provided)
       if (files?.mainImage?.[0])
-        imageUrls.mainImageUrl = await uploadToCloudinary(
-          files.mainImage[0].path
-        );
+        imageUrls.mainImageUrl = await uploadToCloudinary(files.mainImage[0].path);
       if (files?.sideImage?.[0])
-        imageUrls.sideImageUrl = await uploadToCloudinary(
-          files.sideImage[0].path
-        );
+        imageUrls.sideImageUrl = await uploadToCloudinary(files.sideImage[0].path);
       if (files?.sideImage2?.[0])
-        imageUrls.sideImage2Url = await uploadToCloudinary(
-          files.sideImage2[0].path
-        );
+        imageUrls.sideImage2Url = await uploadToCloudinary(files.sideImage2[0].path);
       if (files?.lastImage?.[0])
-        imageUrls.lastImageUrl = await uploadToCloudinary(
-          files.lastImage[0].path
-        );
+        imageUrls.lastImageUrl = await uploadToCloudinary(files.lastImage[0].path);
       if (files?.video?.[0])
         imageUrls.videoUrl = await uploadToCloudinary(files.video[0].path);
+
+      // Parse variations if they exist
+      let variations = undefined;
+      if (req.body.variations) {
+        try {
+          variations = JSON.parse(req.body.variations);
+        } catch (e) {
+          variations = req.body.variations;
+        }
+      }
 
       const updateData = {
         ...req.body,
         ...imageUrls,
+        ...(variations !== undefined && { variations }),
+        ...(req.body.hasVariations !== undefined && {
+          hasVariations: req.body.hasVariations === 'true' || req.body.hasVariations === true
+        })
       };
 
       const updated = await productService.updateProduct(id, updateData);
       if (!updated)
-        return res
-          .status(404)
-          .json({ success: false, message: "Product not found" });
+        return res.status(404).json({ success: false, message: "Product not found" });
 
       res.json({
         success: true,
@@ -166,7 +165,6 @@ class ProductController {
     }
   }
 
-  // ✅ Delete product
   async deleteProduct(req: Request, res: Response) {
     try {
       await productService.deleteProduct(req.params.id);
@@ -176,7 +174,6 @@ class ProductController {
     }
   }
 
-  // ✅ Get all products created by a specific user
   async getProductsByUser(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
@@ -187,7 +184,6 @@ class ProductController {
     }
   }
 
-  // ✅ Get single product with seller details populated
   async getProductWithSellerName(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -202,7 +198,6 @@ class ProductController {
     }
   }
 
-  // ✅ Get all products with seller details
   async getAllProductsWithSellerName(req: Request, res: Response) {
     try {
       const products = await productService.getAllProductsWithSellerName();

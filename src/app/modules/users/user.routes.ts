@@ -10,7 +10,83 @@ const router = Router();
  * @swagger
  * tags:
  *   name: Users
- *   description: User management endpoints
+ *   description: User authentication, profiles and admin management
+ */
+
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *           example: 507f1f77bcf86cd799439011
+ *         name:
+ *           type: string
+ *           example: Jane Vendor
+ *         email:
+ *           type: string
+ *           format: email
+ *         role:
+ *           type: string
+ *           enum: [ADMIN, VENDOR, CUSTOMER]
+ *         isActive:
+ *           type: boolean
+ *           default: true
+ *         isVerified:
+ *           type: boolean
+ *           description: Relevant only for vendors
+ *           default: false
+ *         profileImage:
+ *           type: string
+ *           nullable: true
+ *         storeBanner:
+ *           type: string
+ *           nullable: true
+ *         businessName:
+ *           type: string
+ *           nullable: true
+ *         businessType:
+ *           type: string
+ *           nullable: true
+ *         businessDescription:
+ *           type: string
+ *           nullable: true
+ *         country:
+ *           type: string
+ *           nullable: true
+ *         shippingLocation:
+ *           type: array
+ *           items:
+ *             type: string
+ *             enum: [Local within city state, National within country, International]
+ *         currency:
+ *           type: string
+ *           example: NGN
+ *         language:
+ *           type: string
+ *           default: en
+ *         holdingTime:
+ *           type: number
+ *           description: Order holding time in hours (vendors)
+ *         categories:
+ *           type: array
+ *           items:
+ *             type: string
+ *         phone:
+ *           type: string
+ *           nullable: true
+ *         address:
+ *           type: string
+ *           nullable: true
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
  */
 
 /**
@@ -31,11 +107,13 @@ const router = Router();
  *               - password
  *             properties:
  *               name: { type: string, example: John Doe }
- *               email: { type: string, example: johndoe@example.com }
- *               password: { type: string, example: secret123 }
+ *               email: { type: string, format: email, example: john@example.com }
+ *               password: { type: string, minLength: 6, example: secret123 }
  *     responses:
  *       201:
  *         description: Customer registered successfully
+ *       400:
+ *         description: Validation error or email already exists
  */
 router.post("/register/customer", userController.registerCustomer);
 
@@ -43,7 +121,7 @@ router.post("/register/customer", userController.registerCustomer);
  * @swagger
  * /users/register/vendor:
  *   post:
- *     summary: Register a new vendor
+ *     summary: Register a new vendor (pending admin approval)
  *     tags: [Users]
  *     requestBody:
  *       required: true
@@ -56,39 +134,55 @@ router.post("/register/customer", userController.registerCustomer);
  *               - email
  *               - password
  *               - businessName
- *               - businessCRNumber
- *               - CRDocuments
- *               - isPrivacyPolicyAccepted
- *               - vendorSignature
- *               - vendorContract
- *               - isSellerPolicyAccepted
  *             properties:
- *               name: { type: string, example: Jane Vendor }
- *               email: { type: string, example: vendor@example.com }
- *               password: { type: string, example: secret123 }
- *               businessName: { type: string, example: Jane's Store }
- *               businessCRNumber: { type: string, example: CR123456 }
- *               CRDocuments: { type: string, example: "/uploads/cr.pdf" }
- *               businessType: { type: string, example: Retail }
- *               businessDescription: { type: string, example: "Medical supplies" }
- *               country: { type: string, example: USA }
- *               productCategory: { type: array, items: { type: string }, example: ["Analgesics"] }
- *               shippingLocation: { type: array, items: { type: string }, example: ["Local within city state"] }
- *               storeDescription: { type: string, example: "Best meds online" }
- *               paymentMethod: { type: string, example: BANK_ACCOUNT }
- *               bankAccountHolderName: { type: string, example: Jane Vendor }
- *               bankAccountNumber: { type: string, example: 12345678 }
- *               bankRoughingNumber: { type: string, example: 123456789 }
- *               taxId: { type: string, example: TAX12345 }
- *               isPrivacyPolicyAccepted: { type: boolean, example: true }
- *               vendorSignature: { type: string, example: "Jane Vendor" }
- *               vendorContract: { type: string, example: "/uploads/vendor_contract.pdf" }
- *               isSellerPolicyAccepted: { type: boolean, example: true }
- *               address: { type: string, example: "123 Street, City" }
- *               phone: { type: string, example: "+1234567890" }
+ *               name:
+ *                 type: string
+ *                 example: Jane Vendor
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *               businessName:
+ *                 type: string
+ *               businessType:
+ *                 type: string
+ *               businessDescription:
+ *                 type: string
+ *               country:
+ *                 type: string
+ *               shippingLocation:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [Local within city state, National within country, International]
+ *               address:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               bankAccountHolderName:
+ *                 type: string
+ *               bankAccountNumber:
+ *                 type: string
+ *               bankRoughingNumber:
+ *                 type: string
+ *               paymentMethod:
+ *                 type: string
+ *                 enum: [Bank Account, PAYSTACK, Stripe]
+ *               taxId:
+ *                 type: string
+ *               isPrivacyPolicyAccepted:
+ *                 type: boolean
+ *               isSellerPolicyAccepted:
+ *                 type: boolean
+ *               vendorSignature:
+ *                 type: string
  *     responses:
  *       201:
- *         description: Vendor registered successfully. Pending verification
+ *         description: Vendor registered successfully. Account is pending admin verification
+ *       400:
+ *         description: Validation error or email already exists
  */
 router.post("/register/vendor", userController.registerVendor);
 
@@ -108,13 +202,13 @@ router.post("/register/vendor", userController.registerVendor);
  *               - email
  *               - password
  *             properties:
- *               email: { type: string, example: admin@gmail.com }
- *               password: { type: string, example: secret123 }
+ *               email: { type: string, format: email }
+ *               password: { type: string }
  *     responses:
  *       200:
  *         description: Login successful
  *       401:
- *         description: Unauthorized
+ *         description: Invalid credentials or unverified vendor
  */
 router.post("/login", userController.login);
 
@@ -124,17 +218,9 @@ router.post("/login", userController.login);
  *   post:
  *     summary: Refresh access token using refresh token
  *     tags: [Users]
- *     requestBody:
- *       required: false
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               refreshToken: { type: string, example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
  *     responses:
  *       200:
- *         description: Access token refreshed successfully
+ *         description: New access token generated
  *       401:
  *         description: Invalid or expired refresh token
  */
@@ -144,7 +230,7 @@ router.post("/refresh-token", userController.refreshToken);
  * @swagger
  * /users/logout:
  *   post:
- *     summary: Logout user and clear cookies
+ *     summary: Logout user and clear authentication cookies
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -158,13 +244,19 @@ router.post("/logout", verifyToken, userController.logout);
  * @swagger
  * /users/profile:
  *   get:
- *     summary: Get logged-in user profile
+ *     summary: Get current authenticated user profile
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: User profile fetched successfully
+ *         description: User profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
  */
 router.get("/profile", verifyToken, userController.getProfile);
 
@@ -172,133 +264,75 @@ router.get("/profile", verifyToken, userController.getProfile);
  * @swagger
  * /users/profile:
  *   patch:
- *     summary: Update logged-in user profile with optional image uploads
+ *     summary: Update authenticated user profile (customer or vendor)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
- *       required: true
  *       content:
  *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
- *               name: 
+ *               name:
  *                 type: string
- *                 example: John Updated
- *               email: 
+ *               email:
  *                 type: string
- *                 example: newemail@example.com
- *               address: 
+ *               phone:
  *                 type: string
- *                 example: "456 New Street, City"
- *               phone: 
+ *               address:
  *                 type: string
- *                 example: "+1234567890"
  *               profileImage:
  *                 type: string
  *                 format: binary
- *                 description: User profile image (JPEG, PNG, WebP, GIF - Max 10MB)
  *               storeBanner:
  *                 type: string
  *                 format: binary
- *                 description: Store banner image (JPEG, PNG, WebP, GIF - Max 10MB)
- *               currency:
- *                 type: string
- *                 example: USD
- *                 description: Preferred currency for transactions
- *               holdingTime:
- *                 type: number
- *                 example: 48
- *                 description: Order holding time in hours
- *               categories:
- *                 type: string
- *                 example: '["Electronics", "Clothing", "Books"]'
- *                 description: Array of product categories (send as JSON string)
  *               language:
  *                 type: string
- *                 example: en
- *                 description: Preferred language
- *               businessName: 
+ *               currency:
  *                 type: string
- *                 example: "Updated Business Name"
- *               businessCRNumber: 
+ *               # Vendor fields (ignored for customers)
+ *               businessName:
  *                 type: string
- *                 example: CR789012
- *               CRDocuments: 
+ *               businessType:
  *                 type: string
- *                 example: "/uploads/new-cr.pdf"
- *               businessType: 
+ *               businessDescription:
  *                 type: string
- *                 example: "Wholesale"
- *               businessDescription: 
+ *               country:
  *                 type: string
- *                 example: "Updated business description"
- *               country: 
- *                 type: string
- *                 example: "Canada"
- *               productCategory: 
- *                 type: string
- *                 example: '["Antibiotics", "Analgesics"]'
- *                 description: Medical product categories (send as JSON string)
  *               shippingLocation:
  *                 type: string
- *                 example: '["National within country", "International"]'
- *                 description: Shipping locations (send as JSON string)
- *               storeDescription: 
+ *                 description: JSON string array e.g. ["Local within city state"]
+ *               categories:
  *                 type: string
- *                 example: "Premium medical supplies online"
- *               paymentMethod: 
+ *                 description: JSON string array of categories
+ *               holdingTime:
+ *                 type: number
+ *               paymentMethod:
  *                 type: string
- *                 enum: ["Bank Account", "Paypal", "Stripe"]
- *                 example: "Paypal"
- *               bankAccountHolderName: 
+ *                 enum: [Bank Account, PAYSTACK, Stripe]
+ *               bankAccountHolderName:
  *                 type: string
- *                 example: "John Doe"
- *               bankAccountNumber: 
+ *               bankAccountNumber:
  *                 type: string
- *                 example: "87654321"
- *               bankRoughingNumber: 
+ *               bankRoughingNumber:
  *                 type: string
- *                 example: "987654321"
- *               taxId: 
- *                 type: string
- *                 example: "TAX67890"
- *               isPrivacyPolicyAccepted: 
- *                 type: boolean
- *                 example: true
- *               vendorSignature: 
- *                 type: string
- *                 example: "John Doe Signature"
- *               vendorContract: 
- *                 type: string
- *                 example: "/uploads/updated_contract.pdf"
- *               isSellerPolicyAccepted: 
- *                 type: boolean
- *                 example: true
- *               orderNotification: 
- *                 type: string
- *                 example: "email"
- *               promotionNotification: 
- *                 type: string
- *                 example: "sms"
- *               communicationAlert: 
- *                 type: string
- *                 example: "push"
- *               newReviewsNotification: 
- *                 type: string
- *                 example: "email"
  *     responses:
  *       200:
  *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
  *       400:
- *         description: Invalid input data
+ *         description: Validation error
  *       401:
  *         description: Unauthorized
  */
 router.patch(
-  "/profile", 
-  verifyToken, 
+  "/profile",
+  verifyToken,
   multerUpload.fields([
     { name: "profileImage", maxCount: 1 },
     { name: "storeBanner", maxCount: 1 }
@@ -310,7 +344,7 @@ router.patch(
  * @swagger
  * /users/change-password:
  *   put:
- *     summary: Change password for logged-in user
+ *     summary: Change password for authenticated user
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -325,16 +359,14 @@ router.patch(
  *               - newPassword
  *               - confirmPassword
  *             properties:
- *               currentPassword: { type: string, example: "oldPassword123" }
- *               newPassword: { type: string, example: "newPassword123" }
- *               confirmPassword: { type: string, example: "newPassword123" }
+ *               currentPassword: { type: string }
+ *               newPassword: { type: string, minLength: 6 }
+ *               confirmPassword: { type: string }
  *     responses:
  *       200:
  *         description: Password changed successfully
  *       400:
- *         description: Invalid input or password mismatch
- *       401:
- *         description: Current password is incorrect
+ *         description: Validation error or incorrect current password
  */
 router.put("/change-password", verifyToken, userController.changePassword);
 
@@ -342,7 +374,7 @@ router.put("/change-password", verifyToken, userController.changePassword);
  * @swagger
  * /users/deactivate/{id}:
  *   patch:
- *     summary: Deactivate a user with optional reason
+ *     summary: Deactivate a user (self or admin)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -352,60 +384,59 @@ router.put("/change-password", verifyToken, userController.changePassword);
  *         required: true
  *         schema:
  *           type: string
- *         description: User ID
  *     requestBody:
- *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               reason: { type: string, example: "Requested by admin" }
+ *               reason:
+ *                 type: string
  *     responses:
  *       200:
- *         description: User deactivated successfully
+ *         description: User deactivated
  */
 router.patch("/deactivate/:id", verifyToken, authorizeRoles("ADMIN", "VENDOR", "CUSTOMER"), userController.deactivateUser);
 
-// Add this route after the /vendors route (around line 367)
-
 /**
  * @swagger
- * /users/vendors/pending:
+ * /users/vendors:
  *   get:
- *     summary: Get all pending/unapproved vendors (Admin only)
+ *     summary: Get all approved vendors (Admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of all pending vendors
+ *         description: List of vendors
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden - Admin access required
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ */
+router.get("/vendors", verifyToken, authorizeRoles("ADMIN"), userController.getAllVendors);
+
+/**
+ * @swagger
+ * /users/vendors/pending:
+ *   get:
+ *     summary: Get all pending vendors (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of pending vendors
  */
 router.get("/vendors/pending", verifyToken, authorizeRoles("ADMIN"), userController.getPendingVendors);
-
-// Add this route after the /vendors/pending route
 
 /**
  * @swagger
  * /users/vendors/pending/{id}:
  *   get:
- *     summary: Get a single pending/unapproved vendor by ID (Admin only)
+ *     summary: Get details of a single pending vendor (Admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -415,57 +446,13 @@ router.get("/vendors/pending", verifyToken, authorizeRoles("ADMIN"), userControl
  *         required: true
  *         schema:
  *           type: string
- *         description: Vendor ID
- *         example: "507f1f77bcf86cd799439011"
  *     responses:
  *       200:
- *         description: Pending vendor details retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   description: Vendor details
+ *         description: Pending vendor details
  *       404:
  *         description: Pending vendor not found
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Pending vendor not found"
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden - Admin access required
  */
 router.get("/vendors/pending/:id", verifyToken, authorizeRoles("ADMIN"), userController.getPendingVendorById);
-
-/**
- * @swagger
- * /users/vendors:
- *   get:
- *     summary: Get all vendors (Admin only)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of all vendors
- */
-router.get("/vendors", verifyToken, authorizeRoles("ADMIN"), userController.getAllVendors);
-
-
 
 /**
  * @swagger
@@ -477,7 +464,7 @@ router.get("/vendors", verifyToken, authorizeRoles("ADMIN"), userController.getA
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of all customers
+ *         description: List of customers
  */
 router.get("/customers", verifyToken, authorizeRoles("ADMIN"), userController.getAllCustomers);
 
@@ -485,7 +472,7 @@ router.get("/customers", verifyToken, authorizeRoles("ADMIN"), userController.ge
  * @swagger
  * /users/vendor/verify/{id}:
  *   patch:
- *     summary: Verify a vendor (Admin only)
+ *     summary: Verify/approve a vendor (Admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -495,7 +482,6 @@ router.get("/customers", verifyToken, authorizeRoles("ADMIN"), userController.ge
  *         required: true
  *         schema:
  *           type: string
- *         description: Vendor ID
  *     responses:
  *       200:
  *         description: Vendor verified successfully
@@ -506,7 +492,7 @@ router.patch("/vendor/verify/:id", verifyToken, authorizeRoles("ADMIN"), userCon
  * @swagger
  * /users/{id}:
  *   delete:
- *     summary: Delete a user (Admin only)
+ *     summary: Permanently delete a user (Admin only)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -516,11 +502,18 @@ router.patch("/vendor/verify/:id", verifyToken, authorizeRoles("ADMIN"), userCon
  *         required: true
  *         schema:
  *           type: string
- *         description: User ID
  *     responses:
  *       200:
  *         description: User deleted successfully
  */
 router.delete("/:id", verifyToken, authorizeRoles("ADMIN"), userController.deleteUser);
+
+router.post(
+  "/vendor/create-subaccount",
+  verifyToken,
+  authorizeRoles("VENDOR"),
+  userController.createVendorSubaccount
+);
+
 
 export const UserRoutes = router;

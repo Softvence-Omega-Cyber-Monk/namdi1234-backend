@@ -17,13 +17,13 @@ export enum PaymentStatus {
 }
 
 export enum PaymentMethodType {
-  WALLET = 'WALLET',
   GATEWAY = 'GATEWAY',
   CASH_ON_DELIVERY = 'CASH_ON_DELIVERY'
 }
 
 export interface IOrderProduct {
   productId: Types.ObjectId;
+  variationId?: Types.ObjectId | null;
   quantity: number;
   price: number;
   total: number;
@@ -37,6 +37,7 @@ export interface IShippingAddress {
   city: string;
   state: string;
   zipCode: string;
+  email?: string;
 }
 
 export interface IPaymentHistory {
@@ -75,8 +76,7 @@ export interface IOrder extends Document {
   actualDeliveryDate: Date | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
-  paymentMethodUsed?: PaymentMethodType; // NEW: Track which payment method was used
-  shippingMethodId: Types.ObjectId;
+  paymentMethodUsed?: PaymentMethodType;
   transactionId?: string;
   orderNotes: string | null;
   trackingNumber: string | null;
@@ -93,6 +93,7 @@ export interface IOrder extends Document {
 export interface ICreateOrder {
   fullName: string;
   mobileNumber: string;
+  email: string;
   country: string;
   addressSpecific: string;
   city: string;
@@ -100,18 +101,18 @@ export interface ICreateOrder {
   zipCode: string;
   products: Array<{
     productId: string;
+    variationId?: string | null;
     quantity: number;
   }>;
-  shippingMethodId: string;
   transactionId: string;
   totalPrice: number;
   shippingFee: number;
   discount?: number;
   tax: number;
   promoCode?: string;
-  estimatedDeliveryDate?: Date;
+  estimatedDeliveryDate?: string;
   orderNotes?: string;
-  paymentMethod?: PaymentMethodType; // NEW: Payment method selection
+  paymentMethod?: PaymentMethodType;
 }
 
 export interface IUpdateOrderStatus {

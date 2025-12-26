@@ -3,36 +3,141 @@ import { IUser } from "./user.interface";
 import jwt from "jsonwebtoken";
 import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
 import fs from "fs";
+import axios from "axios";
 
 interface TokenPair {
   accessToken: string;
   refreshToken: string;
 }
 
+// Helper: Get bank code from name
+const getBankCode = (bankName: string): string => {
+  const banks: Record<string, string> = {
+    "Zenith Bank": "057",
+    "Access Bank": "044",
+    "GTBank": "058",
+    "First Bank": "011",
+    "UBA": "033",
+    "Wema Bank": "035",
+    "Stanbic IBTC": "221",
+    "Sterling Bank": "232",
+    "Fidelity Bank": "070",
+    "Union Bank": "032",
+    "Ecobank": "050",
+    "Providus Bank": "101",
+    "Polaris Bank": "091",
+    "Titan Trust Bank": "102",
+  };
+  return banks[bankName] || "058";
+};
+
 export class UserService {
-  async registerCustomer(payload: Partial<IUser>): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
-    payload.role = "CUSTOMER";
-    const existingUser = await UserModel.findOne({ email: payload.email });
-    if (existingUser) throw new Error("Email already exists");
+  async registerCustomer(data: any): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
+    try {
+      const payload: Partial<IUser> = {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: "CUSTOMER",
+      };
 
-    const user = new UserModel(payload);
-    await user.save();
+      const existingUser = await UserModel.findOne({ email: payload.email });
+      if (existingUser) throw new Error("Email already exists");
 
-    const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
-    return { user, accessToken, refreshToken };
+      const user = new UserModel(payload);
+      await user.save();
+
+      const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
+      
+      const userObject = user.toObject();
+      
+      return { user: userObject as IUser, accessToken, refreshToken };
+    } catch (error: any) {
+      console.error("Customer registration error:", error);
+      throw error;
+    }
   }
 
-  async registerVendor(payload: Partial<IUser>): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
-    payload.role = "VENDOR";
-    payload.isVerified = false;
-    const existingUser = await UserModel.findOne({ email: payload.email });
-    if (existingUser) throw new Error("Email already exists");
+  async registerVendor(data: any): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
+    try {
+      const payload: Partial<IUser> = {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        phone: data.phone,
+        address: data.address,
+        businessName: data.businessName,
+        businessType: data.businessType,
+        businessDescription: data.businessDescription,
+        country: data.country,
+        bankAccountHolderName: data.bankAccountHolderName,
+        bankAccountNumber: data.bankAccountNumber,
+        bankRoutingNumber: data.bankRoutingNumber,
+        role: "VENDOR",
+        isVerified: false,
+      };
 
-    const user = new UserModel(payload);
-    await user.save();
+      const existingUser = await UserModel.findOne({ email: payload.email });
+      if (existingUser) throw new Error("Email already exists");
 
-    const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
-    return { user, accessToken, refreshToken };
+      // Create vendor user
+      const user = new UserModel(payload);
+      await user.save();
+
+      const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
+      
+      const userObject = user.toObject();
+      
+      return { user: userObject as IUser, accessToken, refreshToken };
+    } catch (error: any) {
+      console.error("Vendor registration error:", error);
+      throw error;
+    }
+  }
+
+  // New method to create vendor subaccount
+  async createVendorSubaccount(vendorId: string, bankName: string): Promise<{ subaccountCode: string; accountName: string }> {
+    try {
+      const vendor = await UserModel.findById(vendorId);
+      if (!vendor) throw new Error("Vendor not found");
+      if (vendor.role !== "VENDOR") throw new Error("User is not a vendor");
+
+      // Check if subaccount already exists
+      if (vendor.paystackSubaccountCode) {
+        throw new Error("Vendor already has a subaccount");
+      }
+
+      // Validate required fields
+      if (!vendor.bankAccountNumber || !vendor.bankAccountHolderName || !vendor.businessName) {
+        throw new Error("Missing bank details. Please update your profile first.");
+      }
+
+      const bankCode = getBankCode(bankName);
+
+      const paystackPayload = {
+        business_name: vendor.businessName,
+        settlement_bank: bankCode,
+        account_number: vendor.bankAccountNumber,
+        primary_contact_email: vendor.email,
+        primary_contact_name: vendor.bankAccountHolderName,
+        percentage_charge: 10.0, // Platform takes 10%
+      };
+
+      const response = await axios.post("/api/v1/payment/vendorSubAccount", paystackPayload)
+      const subaccountCode = response.data.data.subaccount_code;
+      const accountName = response.data.data.account_name;
+
+      // Save subaccount code to user profile
+      vendor.paystackSubaccountCode = subaccountCode;
+      await vendor.save();
+
+      console.log(`✅ Subaccount created for vendor: ${vendor.email}`);
+
+      return { subaccountCode, accountName };
+    } catch (error: any) {
+      console.error("Subaccount creation error:", error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || error.message || "Failed to create subaccount");
+    }
   }
 
   async login(email: string, password: string): Promise<{ user: IUser; accessToken: string; refreshToken: string }> {
@@ -46,8 +151,10 @@ export class UserService {
       throw new Error("Your vendor profile is pending admin verification");
 
     const { accessToken, refreshToken } = this.generateTokens(user.id.toString(), user.role);
-    user.password = ""; // remove password from response
-    return { user, accessToken, refreshToken };
+    
+    const userObject = user.toObject();
+    
+    return { user: userObject as IUser, accessToken, refreshToken };
   }
 
   async refreshAccessToken(refreshToken: string): Promise<{ accessToken: string }> {
@@ -55,7 +162,6 @@ export class UserService {
       const secret = process.env.JWT_REFRESH_SECRET || "refresh_secretkey";
       const decoded = jwt.verify(refreshToken, secret) as { id: string; role: string };
 
-      // Verify user still exists and is active
       const user = await UserModel.findById(decoded.id);
       if (!user || !user.isActive) {
         throw new Error("User not found or inactive");
@@ -82,8 +188,6 @@ export class UserService {
   async getPendingVendors(): Promise<IUser[]> {
     return UserModel.find({ role: "VENDOR", isVerified: false });
   }
-
-  // Add this method to the UserService class, after getPendingVendors method
 
   async getPendingVendorById(vendorId: string): Promise<IUser | null> {
     const vendor = await UserModel.findOne({
@@ -118,11 +222,9 @@ export class UserService {
     }
   ): Promise<IUser | null> {
     try {
-      // Prevent role or sensitive changes via this method
       delete payload.role;
       delete payload.isVerified;
 
-      // Handle profile image upload
       if (files?.profileImage && files.profileImage.length > 0) {
         const profileImageUrl = await uploadToCloudinary(
           files.profileImage[0].path,
@@ -131,7 +233,6 @@ export class UserService {
         payload.profileImage = profileImageUrl;
       }
 
-      // Handle store banner upload
       if (files?.storeBanner && files.storeBanner.length > 0) {
         const storeBannerUrl = await uploadToCloudinary(
           files.storeBanner[0].path,
@@ -140,17 +241,14 @@ export class UserService {
         payload.storeBanner = storeBannerUrl;
       }
 
-      // Parse categories if it's a string (from form-data)
       if (payload.categories && typeof payload.categories === 'string') {
         try {
           payload.categories = JSON.parse(payload.categories as string);
         } catch (e) {
-          // If it's not JSON, treat it as a single category
           payload.categories = [payload.categories as unknown as string];
         }
       }
 
-      // Validate holdingTime if provided
       if (payload.holdingTime !== undefined) {
         const holdingTime = Number(payload.holdingTime);
         if (isNaN(holdingTime) || holdingTime < 0) {
@@ -167,7 +265,6 @@ export class UserService {
       if (!updatedUser) throw new Error("User not found");
       return updatedUser;
     } catch (error) {
-      // Clean up uploaded files if update fails
       if (files?.profileImage?.[0]?.path && fs.existsSync(files.profileImage[0].path)) {
         fs.unlinkSync(files.profileImage[0].path);
       }
@@ -186,11 +283,9 @@ export class UserService {
     const user = await UserModel.findById(userId).select("+password");
     if (!user) throw new Error("User not found");
 
-    // Verify current password
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) throw new Error("Current password is incorrect");
 
-    // Update password (pre-save hook should hash it)
     user.password = newPassword;
     await user.save();
   }
@@ -214,12 +309,12 @@ export class UserService {
 
   private generateAccessToken(id: string, role: string): string {
     const secret = process.env.JWT_SECRET || "secretkey";
-    return jwt.sign({ id, role }, secret, { expiresIn: "1d" }); // 1 day
+    return jwt.sign({ id, role }, secret, { expiresIn: "1d" });
   }
 
   private generateRefreshToken(id: string, role: string): string {
     const secret = process.env.JWT_REFRESH_SECRET || "refresh_secretkey";
-    return jwt.sign({ id, role }, secret, { expiresIn: "7d" }); // 7 days
+    return jwt.sign({ id, role }, secret, { expiresIn: "7d" });
   }
 
   private generateTokens(id: string, role: string): TokenPair {

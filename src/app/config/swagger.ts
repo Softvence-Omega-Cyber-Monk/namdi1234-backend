@@ -13,8 +13,8 @@ export const setupSwagger = (app: Express) => {
       },
       servers: [
         {
-          url: "https://numdi1234.onrender.com/api/v1",
-          // url: "http://localhost:5000/api/v1",
+          // url: "https://numdi1234.onrender.com/api/v1",
+          url: "http://localhost:5000/api/v1",
           description: "Live server",
         },
       ],

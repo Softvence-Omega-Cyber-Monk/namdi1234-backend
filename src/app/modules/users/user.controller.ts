@@ -1,11 +1,9 @@
 import { CookieOptions, Request, Response } from "express";
 import { userService } from "./user.service";
 
-// Cookie configuration helper function
-const getCookieOptions = (maxAge: number) => {
+const getCookieOptions = (maxAge: number): CookieOptions => {
   return {
     httpOnly: true,
-    // secure: process.env.NODE_ENV === "production", // true in production
     secure: true,
     sameSite: "none" as CookieOptions["sameSite"],
     maxAge: maxAge,
@@ -17,9 +15,8 @@ export class UserController {
     try {
       const { user, accessToken, refreshToken } = await userService.registerCustomer(req.body);
 
-      // Set tokens in cookies
-      res.cookie("accessToken", accessToken, getCookieOptions(60 * 24 * 60 * 1000)); // 1 days
-      res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000)); // 7 days
+      res.cookie("accessToken", accessToken, getCookieOptions(60 * 24 * 60 * 1000));
+      res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
       res.status(201).json({
         success: true,
@@ -35,9 +32,8 @@ export class UserController {
     try {
       const { user, accessToken, refreshToken } = await userService.registerVendor(req.body);
 
-      // Set tokens in cookies
-      res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000)); // 15 minutes
-      res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000)); // 7 days
+      res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000));
+      res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
       res.status(201).json({
         success: true,
@@ -49,14 +45,44 @@ export class UserController {
     }
   }
 
+  // New endpoint to create vendor subaccount
+  async createVendorSubaccount(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user.id;
+      const { bankName } = req.body;
+
+      if (!bankName) {
+        return res.status(400).json({
+          success: false,
+          message: "Bank name is required"
+        });
+      }
+
+      const { subaccountCode, accountName } = await userService.createVendorSubaccount(userId, bankName);
+
+      res.status(200).json({
+        success: true,
+        message: "Subaccount created successfully",
+        data: {
+          subaccountCode,
+          accountName
+        }
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   async login(req: Request, res: Response) {
     try {
       const { email, password } = req.body;
       const { user, accessToken, refreshToken } = await userService.login(email, password);
 
-      // Set tokens in cookies
-      res.cookie("accessToken", accessToken, getCookieOptions(60 * 60 * 1000)); // 15 minutes
-      res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000)); // 7 days
+      res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000));
+      res.cookie("refreshToken", refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
 
       res.json({
         success: true,
@@ -78,8 +104,7 @@ export class UserController {
 
       const { accessToken } = await userService.refreshAccessToken(refreshToken);
 
-      // Set new access token in cookie
-      res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000)); // 15 minutes
+      res.cookie("accessToken", accessToken, getCookieOptions(15 * 60 * 1000));
 
       res.json({
         success: true,
@@ -93,7 +118,6 @@ export class UserController {
 
   async logout(req: Request, res: Response) {
     try {
-      // Clear cookies
       res.clearCookie("accessToken");
       res.clearCookie("refreshToken");
 
@@ -131,8 +155,6 @@ export class UserController {
     }
   }
 
-  // Add this method to the UserController class, after getPendingVendors method
-
   async getPendingVendorById(req: Request, res: Response) {
     try {
       const vendorId = req.params.id;
@@ -154,7 +176,7 @@ export class UserController {
 
   async getProfile(req: Request, res: Response) {
     try {
-      const userId = (req as any).user.id || (req as any).user.id;
+      const userId = (req as any).user.id;
       const user = await userService.getUserById(userId);
       res.json({ success: true, data: user });
     } catch (error: any) {
@@ -165,8 +187,6 @@ export class UserController {
   async updateUser(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
-
-      // Extract files from multer
       const files = req.files as {
         [fieldname: string]: Express.Multer.File[]
       };
@@ -190,12 +210,12 @@ export class UserController {
       });
     }
   }
+
   async changePassword(req: Request, res: Response) {
     try {
       const userId = (req as any).user.id;
       const { currentPassword, newPassword, confirmPassword } = req.body;
 
-      // Validation
       if (!currentPassword || !newPassword || !confirmPassword) {
         return res.status(400).json({
           success: false,

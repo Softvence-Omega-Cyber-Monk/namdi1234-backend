@@ -1,24 +1,15 @@
 import { Document } from "mongoose";
 
-export enum ProductCategory {
-  ANALGESICS = "Analgesics",
-  ANTIBIOTICS = "Antibiotics",
-  CARDIOVASCULAR_MEDICATIONS = "Cardiovascular Medications",
-  ANTIDIABETIC_MEDICATIONS = "Antidiabetic Medications",
-  CENTRAL_NERVOUS_SYSTEM = "Central Nervous System",
-  ALL = "All",
-}
-
 export enum ShippingLocation {
-    LOCAL = "Local within city state",
-    NATIONAL = "National within country",
-    INTERNATIONAL = "International"
+  LOCAL = "Local within city state",
+  NATIONAL = "National within country",
+  INTERNATIONAL = "International"
 }
 
 export enum PaymentMethod {
-    BANK_ACCOUNT = "Bank Account",
-    PAYPAL = "Paypal",
-    STRIPE = "Stripe"
+  BANK_ACCOUNT = "Bank Account",
+  PAYSTACK = "PAYSTACK",
+  STRIPE = "Stripe"
 }
 
 export interface IUser extends Document {
@@ -27,41 +18,33 @@ export interface IUser extends Document {
   password: string;
   role: "ADMIN" | "VENDOR" | "CUSTOMER";
   isActive: boolean;
-  profileImage?: string,
-  deactivationReason?: string,
-  isVerified?: boolean; 
-  businessName? : string,
-  businessCRNumber?: string,
-  CRDocuments?: string,
-  businessType?: string,
-  businessDescription?: string,
-  country?: string,
-  productCategory?: ProductCategory[],
-  shippingLocation?: ShippingLocation[],
-  storeDescription?: string,
-  paymentMethod?: PaymentMethod,
-  bankAccountHolderName?: string,
-  bankAccountNumber?: string,
-  bankRoughingNumber?: string,
-  taxId?: string,
-  isPrivacyPolicyAccepted?: boolean,
-  vendorSignature?: string,
-  vendorContract?: string,
-  isSellerPolicyAccepted?: boolean,
+  profileImage?: string;
+  storeBanner?: string;
+  deactivationReason?: string;
+  isVerified?: boolean;
+
+  businessName?: string;
+  businessType?: string;
+  businessDescription?: string;
+  country?: string;
+  shippingLocation?: ShippingLocation[];
   address?: string;
   phone?: string | null;
-  orderNotification?: string,
-  promotionNotification?:string,
-  communicationAlert?: string,
-  newReviewsNotification?: string, 
+
+  bankAccountHolderName?: string;
+  bankAccountNumber?: string;
+  bankRoutingNumber?: string;       // ← corrected name
+  paymentMethod?: PaymentMethod;
+
+  language: string;
+  currency: string;
+  holdingTime: number;
+  categories: string[];
+
+  paystackSubaccountCode?: string;
+
   createdAt: Date;
   updatedAt: Date;
-  language: string,
-  //new
-  currency: string,
-  holdingTime: number,
-  categories: string[],  
-  storeBanner: string,
-  paystackSubaccountCode?: string; // e.g., "ACCT_xxxxx"
+
   comparePassword(candidatePassword: string): Promise<boolean>;
 }

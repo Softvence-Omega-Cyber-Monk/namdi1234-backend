@@ -17,6 +17,8 @@ export class OrderController {
     this.service = new OrderService();
   }
 
+  // order.controller.ts - Enhanced createOrder with better validation
+
   createOrder = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = (req as any).user?.id;
@@ -30,6 +32,71 @@ export class OrderController {
       }
 
       const data: ICreateOrder = req.body;
+
+      // Enhanced validation
+      const validationErrors: string[] = [];
+
+      // Validate required fields
+      if (!data.fullName?.trim()) validationErrors.push('Full name is required');
+      if (!data.mobileNumber?.trim()) validationErrors.push('Mobile number is required');
+      if (!data.email?.trim()) validationErrors.push('Email is required');
+      if (!data.addressSpecific?.trim()) validationErrors.push('Address is required');
+      if (!data.city?.trim()) validationErrors.push('City is required');
+      if (!data.state?.trim()) validationErrors.push('State is required');
+      if (!data.zipCode?.trim()) validationErrors.push('Zip code is required');
+
+      // Validate products
+      if (!data.products || !Array.isArray(data.products) || data.products.length === 0) {
+        validationErrors.push('At least one product is required');
+      } else {
+        data.products.forEach((product, index) => {
+          if (!product.productId) validationErrors.push(`Product ${index + 1}: productId is required`);
+          if (!product.quantity || product.quantity < 1) validationErrors.push(`Product ${index + 1}: valid quantity is required`);
+        });
+      }
+
+      // Validate numbers
+      if (typeof data.totalPrice !== 'number' || data.totalPrice < 0) {
+        validationErrors.push('Valid total price is required');
+      }
+      if (typeof data.shippingFee !== 'number' || data.shippingFee < 0) {
+        validationErrors.push('Valid shipping fee is required');
+      }
+      if (typeof data.tax !== 'number' || data.tax < 0) {
+        validationErrors.push('Valid tax amount is required');
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (data.email && !emailRegex.test(data.email)) {
+        validationErrors.push('Invalid email format');
+      }
+
+      if (validationErrors.length > 0) {
+        res.status(400).json({
+          success: false,
+          error: validationErrors.join(', ')
+        });
+        return;
+      }
+
+      // Log incoming data for debugging
+      console.log('📥 Received order data:', {
+        userId,
+        email: data.email,
+        products: data.products.map(p => ({
+          productId: p.productId,
+          variationId: p.variationId,
+          quantity: p.quantity
+        })),
+        totals: {
+          totalPrice: data.totalPrice,
+          shippingFee: data.shippingFee,
+          tax: data.tax,
+          discount: data.discount || 0
+        }
+      });
+
       const order = await this.service.createOrder(userId, data);
 
       res.status(201).json({
@@ -44,10 +111,17 @@ export class OrderController {
         }
       });
     } catch (error) {
-      console.error('Error creating order:', error);
+      console.error('❌ Error creating order:', error);
+
+      // Enhanced error response
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create order';
+      const errorDetails = error instanceof Error ? error.stack : undefined;
+
+      console.error('Error details:', errorDetails);
+
       res.status(400).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to create order'
+        error: errorMessage
       });
     }
   };
