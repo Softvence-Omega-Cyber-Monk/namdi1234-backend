@@ -21,11 +21,13 @@ import { PolicyRoutes } from "./app/modules/policy/policy.routes";
 import { PartnerRoutes } from "./app/modules/partners/partners.routes";
 import { shippingRoutes } from "./app/modules/shipping/shipping.routes";
 import { PayoutRoutes } from "./app/modules/payout/payout.routes";
-import { CMSRouter } from "./app/modules/cms/cms.routes";
 import { CartRoutes } from "./app/modules/cart/cart.routes";
 import { paystackRouter } from "./app/modules/paystack/paystack.route";
 import paymentRouter from "./app/modules/payments/payments.routes";
 import { paystackWebhook } from "./app/modules/payments/payments.controller";
+import { BlogRoutes } from "./app/modules/blog/blog.routes";
+import { SliderBannerRoutes } from "./app/modules/slider-banner/sliderBanner.routes";
+import { TestimonialRoutes } from "./app/modules/testimonial/testimonial.routes";
 
 dotenv.config();
 
@@ -74,9 +76,11 @@ app.use("/api/v1/policy", PolicyRoutes)
 app.use("/api/v1/partners", PartnerRoutes)
 app.use("/api/v1/shipping", shippingRoutes)
 app.use("/api/v1/payouts", PayoutRoutes)
-app.use("/api/v1/cms", CMSRouter)
 app.use("/api/v1/cart", CartRoutes)
 app.use("/api/v1/payments", paystackRouter)
+app.use("/api/v1/blogs", BlogRoutes)
+app.use("/api/v1/cms", SliderBannerRoutes);
+app.use("/api/v1/tst",TestimonialRoutes);
 
 
 

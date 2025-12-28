@@ -80,6 +80,22 @@ const productSchema = new Schema<IProduct>({
     type: Number,
     default: 0
   },
+  isInCatalogueList: {
+    type: Boolean,
+    default: false
+  },
+  isExclusive: {
+    type: Boolean,
+    default: false
+  },
+  isFeatured: {
+    type: Boolean,
+    default: false
+  },
+  isInWeekendDeals: {
+    type: Boolean,
+    default: false
+  },
   soldUnits: {
     type: Number,
     default: 0

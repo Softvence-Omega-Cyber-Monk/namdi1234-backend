@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { OrderService } from './order.service';
 import { ICreateOrder, IUpdateOrderStatus, IUpdatePaymentWithHistory, OrderStatus, PaymentStatus } from './order.interface';
 
+// Fix the AuthRequest interface to extend Express Request properly
 interface AuthRequest extends Request {
   user?: {
     id: string;
@@ -16,8 +17,6 @@ export class OrderController {
   constructor() {
     this.service = new OrderService();
   }
-
-  // order.controller.ts - Enhanced createOrder with better validation
 
   createOrder = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -201,7 +200,7 @@ export class OrderController {
     }
   };
 
-  getAllOrders = async (req: AuthRequest, res: Response): Promise<void> => {
+  getAllOrders = async (req: Request, res: Response): Promise<void> => {
     try {
       const { status, paymentStatus, startDate, endDate, orderNumber } = req.query;
 
@@ -281,7 +280,7 @@ export class OrderController {
     }
   };
 
-  getMyOrders = async (req: AuthRequest, res: Response): Promise<void> => {
+  getMyOrders = async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = (req as any).user?.id;
 
@@ -348,7 +347,7 @@ export class OrderController {
     }
   };
 
-  cancelOrder = async (req: AuthRequest, res: Response): Promise<void> => {
+  cancelOrder = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const { reason } = req.body;
@@ -491,9 +490,9 @@ export class OrderController {
     }
   };
 
-  getMyOrderStats = async (req: AuthRequest, res: Response): Promise<void> => {
+  getMyOrderStats = async (req: Request, res: Response): Promise<void> => {
     try {
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
 
       if (!userId) {
         res.status(401).json({
@@ -538,11 +537,10 @@ export class OrderController {
       });
     }
   };
-  // Add these methods to order.controller.ts
 
-  getMyVendorOrders = async (req: AuthRequest, res: Response): Promise<void> => {
+  getMyVendorOrders = async (req: Request, res: Response): Promise<void> => {
     try {
-      const vendorId = req.user?.id;
+      const vendorId = (req as any).user?.id;
 
       if (!vendorId) {
         res.status(401).json({
@@ -553,7 +551,8 @@ export class OrderController {
       }
 
       // Check if user is a vendor
-      if (req.user?.role !== 'VENDOR' && req.user?.role !== 'ADMIN') {
+      const userRole = (req as any).user?.role;
+      if (userRole !== 'VENDOR' && userRole !== 'ADMIN') {
         res.status(403).json({
           success: false,
           error: 'Access denied. Only vendors can access this endpoint.'
@@ -583,9 +582,9 @@ export class OrderController {
     }
   };
 
-  getMyVendorOrderStats = async (req: AuthRequest, res: Response): Promise<void> => {
+  getMyVendorOrderStats = async (req: Request, res: Response): Promise<void> => {
     try {
-      const vendorId = req.user?.id;
+      const vendorId = (req as any).user?.id;
 
       if (!vendorId) {
         res.status(401).json({
@@ -596,7 +595,8 @@ export class OrderController {
       }
 
       // Check if user is a vendor
-      if (req.user?.role !== 'VENDOR' && req.user?.role !== 'ADMIN') {
+      const userRole = (req as any).user?.role;
+      if (userRole !== 'VENDOR' && userRole !== 'ADMIN') {
         res.status(403).json({
           success: false,
           error: 'Access denied. Only vendors can access this endpoint.'

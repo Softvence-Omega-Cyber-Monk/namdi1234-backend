@@ -16,223 +16,223 @@ import { walletService } from '../wallet/wallet.service';
 
 export class OrderService {
   async createOrder(userId: string, data: any): Promise<IOrder> {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-  try {
-    const Product = mongoose.model('Product');
+    try {
+      const Product = mongoose.model('Product');
 
-    // Extract unique product IDs
-    const productIds = [...new Set(
-      data.products.map((p: { productId: string }) => p.productId)
-    )].map(id => new mongoose.Types.ObjectId(id as any));
+      // Extract unique product IDs
+      const productIds = [...new Set(
+        data.products.map((p: { productId: string }) => p.productId)
+      )].map(id => new mongoose.Types.ObjectId(id as any));
 
-    // Fetch all required products with variations subdocument
-    const products = await Product.find({ _id: { $in: productIds } })
-      .select(
-        '_id productName pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate userId variations'
-      )
-      .populate('userId', 'name email role businessName')
-      .session(session);
+      // Fetch all required products with variations subdocument
+      const products = await Product.find({ _id: { $in: productIds } })
+        .select(
+          '_id productName pricePerUnit specialPrice specialPriceStartingDate specialPriceEndingDate userId variations'
+        )
+        .populate('userId', 'name email role businessName')
+        .session(session);
 
-    // Check if all requested products were found
-    if (products.length !== productIds.length) {
-      throw new Error('One or more products not found');
-    }
-
-    // Build maps for quick lookup
-    const productMap = new Map<string, any>();
-    const vendorProductsMap = new Map<string, any>(); // For vendor email grouping
-
-    products.forEach((product: any) => {
-      let basePrice = product.pricePerUnit;
-
-      // Apply special price if active
-      if (
-        product.specialPrice &&
-        product.specialPriceStartingDate &&
-        product.specialPriceEndingDate
-      ) {
-        const now = new Date();
-        const start = new Date(product.specialPriceStartingDate);
-        const end = new Date(product.specialPriceEndingDate);
-
-        if (now >= start && now <= end) {
-          basePrice = product.specialPrice;
-        }
+      // Check if all requested products were found
+      if (products.length !== productIds.length) {
+        throw new Error('One or more products not found');
       }
 
-      // Store product data
-      productMap.set(product._id.toString(), {
-        basePrice,
-        productName: product.productName,
-        vendor: product.userId,
-        variations: product.variations || [], // Ensure it's an array
+      // Build maps for quick lookup
+      const productMap = new Map<string, any>();
+      const vendorProductsMap = new Map<string, any>(); // For vendor email grouping
+
+      products.forEach((product: any) => {
+        let basePrice = product.pricePerUnit;
+
+        // Apply special price if active
+        if (
+          product.specialPrice &&
+          product.specialPriceStartingDate &&
+          product.specialPriceEndingDate
+        ) {
+          const now = new Date();
+          const start = new Date(product.specialPriceStartingDate);
+          const end = new Date(product.specialPriceEndingDate);
+
+          if (now >= start && now <= end) {
+            basePrice = product.specialPrice;
+          }
+        }
+
+        // Store product data
+        productMap.set(product._id.toString(), {
+          basePrice,
+          productName: product.productName,
+          vendor: product.userId,
+          variations: product.variations || [], // Ensure it's an array
+        });
+
+        // Initialize vendor grouping for email
+        if (product.userId && product.userId.email) {
+          const vendorId = product.userId._id.toString();
+          if (!vendorProductsMap.has(vendorId)) {
+            vendorProductsMap.set(vendorId, {
+              vendorEmail: product.userId.email,
+              vendorName: product.userId.name || product.userId.businessName || 'Vendor',
+              products: [],
+            });
+          }
+        }
       });
 
-      // Initialize vendor grouping for email
-      if (product.userId && product.userId.email) {
-        const vendorId = product.userId._id.toString();
-        if (!vendorProductsMap.has(vendorId)) {
-          vendorProductsMap.set(vendorId, {
-            vendorEmail: product.userId.email,
-            vendorName: product.userId.name || product.userId.businessName || 'Vendor',
-            products: [],
-          });
-        }
-      }
-    });
-
-    // Process each cart item to build order products
-    const orderProducts = data.products.map((item: { 
-      productId: string; 
-      variationId?: string | null; 
-      quantity: number 
-    }) => {
-      const productData = productMap.get(item.productId);
-      if (!productData) {
-        throw new Error(`Product not found: ${item.productId}`);
-      }
-
-      let finalPrice = productData.basePrice;
-      let variationSku = null;
-
-      // Handle variation if provided
-      if (item.variationId) {
-        const variation = productData.variations.find(
-          (v: any) => v._id.toString() === item.variationId
-        );
-
-        if (!variation) {
-          throw new Error(`Variation not found for ID: ${item.variationId}`);
+      // Process each cart item to build order products
+      const orderProducts = data.products.map((item: {
+        productId: string;
+        variationId?: string | null;
+        quantity: number
+      }) => {
+        const productData = productMap.get(item.productId);
+        if (!productData) {
+          throw new Error(`Product not found: ${item.productId}`);
         }
 
-        // Use variation-specific price if available
-        if (variation.price !== undefined && variation.price !== null) {
-          finalPrice = variation.price;
+        let finalPrice = productData.basePrice;
+        let variationSku = null;
+
+        // Handle variation if provided
+        if (item.variationId) {
+          const variation = productData.variations.find(
+            (v: any) => v._id.toString() === item.variationId
+          );
+
+          if (!variation) {
+            throw new Error(`Variation not found for ID: ${item.variationId}`);
+          }
+
+          // Use variation-specific price if available
+          if (variation.price !== undefined && variation.price !== null) {
+            finalPrice = variation.price;
+          }
+
+          variationSku = variation.sku || variation.variationSku;
         }
 
-        variationSku = variation.sku || variation.variationSku;
-      }
+        const itemTotal = finalPrice * item.quantity;
 
-      const itemTotal = finalPrice * item.quantity;
-
-      // Add to vendor email list
-      if (productData.vendor && productData.vendor.email) {
-        const vendorId = productData.vendor._id.toString();
-        const vendorData = vendorProductsMap.get(vendorId);
-        if (vendorData) {
-          vendorData.products.push({
-            productName: productData.productName + 
-              (variationSku ? ` (${variationSku})` : ''),
-            quantity: item.quantity,
-            price: finalPrice,
-            total: itemTotal,
-          });
+        // Add to vendor email list
+        if (productData.vendor && productData.vendor.email) {
+          const vendorId = productData.vendor._id.toString();
+          const vendorData = vendorProductsMap.get(vendorId);
+          if (vendorData) {
+            vendorData.products.push({
+              productName: productData.productName +
+                (variationSku ? ` (${variationSku})` : ''),
+              quantity: item.quantity,
+              price: finalPrice,
+              total: itemTotal,
+            });
+          }
         }
-      }
 
-      return {
-        productId: new mongoose.Types.ObjectId(item.productId),
-        variationId: item.variationId ? new mongoose.Types.ObjectId(item.variationId) : null,
-        quantity: item.quantity,
-        price: finalPrice,
-        total: itemTotal,
-      };
-    });
+        return {
+          productId: new mongoose.Types.ObjectId(item.productId),
+          variationId: item.variationId ? new mongoose.Types.ObjectId(item.variationId) : null,
+          quantity: item.quantity,
+          price: finalPrice,
+          total: itemTotal,
+        };
+      });
 
-    // Use frontend-provided totals
-    const discount = data.discount || 0;
-    const grandTotal = data.totalPrice + data.shippingFee + data.tax - discount;
+      // Use frontend-provided totals
+      const discount = data.discount || 0;
+      const grandTotal = data.totalPrice + data.shippingFee + data.tax - discount;
 
-    // Generate order number
-    const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      // Generate order number
+      const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    // Estimated delivery (Nigeria: 3-7 days based on location)
-    const estimatedDeliveryDate = data.estimatedDeliveryDate
-      ? new Date(data.estimatedDeliveryDate)
-      : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000); // 5 days default
+      // Estimated delivery (Nigeria: 3-7 days based on location)
+      const estimatedDeliveryDate = data.estimatedDeliveryDate
+        ? new Date(data.estimatedDeliveryDate)
+        : new Date(Date.now() + 5 * 24 * 60 * 60 * 1000); // 5 days default
 
-    // Always GATEWAY payment (Paystack) or COD - no wallet
-    const paymentStatus = PaymentStatus.PENDING;
-    const orderStatus = OrderStatus.PENDING;
-    const transactionId = data.transactionId || `TMP-${Date.now()}`;
-    const paymentMethodUsed = data.paymentMethod || PaymentMethodType.GATEWAY;
+      // Always GATEWAY payment (Paystack) or COD - no wallet
+      const paymentStatus = PaymentStatus.PENDING;
+      const orderStatus = OrderStatus.PENDING;
+      const transactionId = data.transactionId || `TMP-${Date.now()}`;
+      const paymentMethodUsed = data.paymentMethod || PaymentMethodType.GATEWAY;
 
-    // Build order document
-    const orderData = {
-      orderNumber,
-      userId: new mongoose.Types.ObjectId(userId),
-      shippingAddress: {
-        fullName: data.fullName,
-        mobileNumber: data.mobileNumber,
-        email: data.email,
-        country: data.country,
-        addressSpecific: data.addressSpecific,
-        city: data.city,
-        state: data.state,
-        zipCode: data.zipCode,
-      },
-      products: orderProducts,
-      totalPrice: data.totalPrice,
-      shippingFee: data.shippingFee,
-      discount,
-      tax: data.tax,
-      grandTotal,
-      promoCode: data.promoCode || null,
-      estimatedDeliveryDate,
-      orderNotes: data.orderNotes || null,
-      status: orderStatus,
-      paymentStatus,
-      paymentMethodUsed,
-      transactionId,
-      statusHistory: [{
+      // Build order document
+      const orderData = {
+        orderNumber,
+        userId: new mongoose.Types.ObjectId(userId),
+        shippingAddress: {
+          fullName: data.fullName,
+          mobileNumber: data.mobileNumber,
+          email: data.email,
+          country: data.country,
+          addressSpecific: data.addressSpecific,
+          city: data.city,
+          state: data.state,
+          zipCode: data.zipCode,
+        },
+        products: orderProducts,
+        totalPrice: data.totalPrice,
+        shippingFee: data.shippingFee,
+        discount,
+        tax: data.tax,
+        grandTotal,
+        promoCode: data.promoCode || null,
+        estimatedDeliveryDate,
+        orderNotes: data.orderNotes || null,
         status: orderStatus,
-        timestamp: new Date(),
-        note: 'Order created - awaiting payment via Paystack',
-      }],
-    };
+        paymentStatus,
+        paymentMethodUsed,
+        transactionId,
+        statusHistory: [{
+          status: orderStatus,
+          timestamp: new Date(),
+          note: 'Order created - awaiting payment via Paystack',
+        }],
+      };
 
-    const order = new Order(orderData);
-    await order.save({ session });
+      const order = new Order(orderData);
+      await order.save({ session });
 
-    await session.commitTransaction();
+      await session.commitTransaction();
 
-    // Populate for response and emails
-    await order.populate('products.productId', 'productName mainImageUrl pricePerUnit');
-    await order.populate('userId', 'name email phone');
+      // Populate for response and emails
+      await order.populate('products.productId', 'productName mainImageUrl pricePerUnit');
+      await order.populate('userId', 'name email phone');
 
-    // Send vendor emails (non-blocking)
-    try {
-      for (const [vendorId, vendorData] of vendorProductsMap) {
-        await emailService.sendVendorOrderNotification({
-          vendorEmail: vendorData.vendorEmail,
-          vendorName: vendorData.vendorName,
-          order: order.toObject(),
-          products: vendorData.products,
-        }).catch(err => console.error(`Vendor email failed: ${vendorData.vendorEmail}`, err));
+      // Send vendor emails (non-blocking)
+      try {
+        for (const [vendorId, vendorData] of vendorProductsMap) {
+          await emailService.sendVendorOrderNotification({
+            vendorEmail: vendorData.vendorEmail,
+            vendorName: vendorData.vendorName,
+            order: order.toObject(),
+            products: vendorData.products,
+          }).catch(err => console.error(`Vendor email failed: ${vendorData.vendorEmail}`, err));
+        }
+
+        // Send customer confirmation
+        await emailService.sendCustomerOrderConfirmation(
+          data.email,
+          data.fullName,
+          order.toObject()
+        ).catch(err => console.error('Customer email failed:', err));
+      } catch (emailError) {
+        console.error('Email notifications failed:', emailError);
+        // Order creation succeeds even if emails fail
       }
 
-      // Send customer confirmation
-      await emailService.sendCustomerOrderConfirmation(
-        data.email,
-        data.fullName,
-        order.toObject()
-      ).catch(err => console.error('Customer email failed:', err));
-    } catch (emailError) {
-      console.error('Email notifications failed:', emailError);
-      // Order creation succeeds even if emails fail
+      return order;
+    } catch (error) {
+      await session.abortTransaction();
+      console.error('Order creation failed:', error);
+      throw error;
+    } finally {
+      session.endSession();
     }
-
-    return order;
-  } catch (error) {
-    await session.abortTransaction();
-    console.error('Order creation failed:', error);
-    throw error;
-  } finally {
-    session.endSession();
   }
-}
 
   async getAllOrders(filters: IOrderFilters = {}): Promise<IOrder[]> {
     const query: any = {};
@@ -266,7 +266,6 @@ export class OrderService {
     const orders = await Order.find(query)
       .populate('userId', 'name email phone address')
       .populate('products.productId')
-      .populate('shippingMethodId', 'name code contactEmail contactPhone trackingUrl')
       .sort({ createdAt: -1 });
 
     return orders;
@@ -276,8 +275,6 @@ export class OrderService {
     const order = await Order.findById(orderId)
       .populate('userId', 'name email phone address')
       .populate('products.productId')
-      .populate('shippingMethodId', 'name code description contactEmail contactPhone trackingUrl logo');
-
     return order;
   }
 
@@ -285,8 +282,6 @@ export class OrderService {
     const order = await Order.findOne({ orderNumber: orderNumber.toUpperCase() })
       .populate('userId', 'name email phone')
       .populate('products.productId')
-      .populate('shippingMethodId', 'name code trackingUrl');
-
     return order;
   }
 
@@ -300,7 +295,6 @@ export class OrderService {
     const orders = await Order.find(query)
       .populate('userId', 'name email phone')
       .populate('products.productId')
-      .populate('shippingMethodId', 'name code trackingUrl')
       .sort({ createdAt: -1 });
 
     return orders;
@@ -685,7 +679,6 @@ export class OrderService {
     const orders = await Order.find()
       .populate('userId', 'name email phone')
       .populate('products.productId')
-      .populate('shippingMethodId', 'name code trackingUrl')
       .sort({ createdAt: -1 })
       .limit(limit);
 
@@ -714,14 +707,17 @@ export class OrderService {
         'products.productId': { $in: vendorProductIds }
       };
 
-      // Apply additional filters if provided
-      if (filters?.status) {
+      // Apply status filter ONLY if it's provided and not empty
+      if (filters?.status && filters.status.trim() !== '') {
         query.status = filters.status;
       }
 
-      if (filters?.paymentStatus) {
+      // Apply payment status filter ONLY if it's provided and not empty
+      if (filters?.paymentStatus && filters.paymentStatus.trim() !== '') {
         query.paymentStatus = filters.paymentStatus;
       }
+
+      console.log('🔍 Vendor Orders Query:', JSON.stringify(query, null, 2));
 
       // Fetch orders
       const orders = await Order.find(query)
@@ -730,8 +726,9 @@ export class OrderService {
           path: 'products.productId',
           select: 'productName mainImageUrl pricePerUnit specialPrice userId'
         })
-        .populate('shippingMethodId', 'name code trackingUrl')
         .sort({ createdAt: -1 });
+
+      console.log(`✅ Found ${orders.length} orders for vendor ${vendorId}`);
 
       // Filter products in each order to only show vendor's products
       const filteredOrders = orders.map(order => {
@@ -749,7 +746,7 @@ export class OrderService {
 
       return filteredOrders as any;
     } catch (error) {
-      console.error('Error fetching vendor orders:', error);
+      console.error('❌ Error fetching vendor orders:', error);
       throw error;
     }
   }

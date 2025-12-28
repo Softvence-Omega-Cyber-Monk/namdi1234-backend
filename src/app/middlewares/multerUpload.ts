@@ -28,7 +28,7 @@ const fileFilter = (
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ) => {
-  const allowedImageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  const allowedImageTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"]; // Added "image/jpg"
   const allowedVideoTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/x-msvideo"];
 
   if (file.mimetype.startsWith("video/")) {
@@ -44,10 +44,11 @@ const fileFilter = (
   }
 };
 
+// Existing: General purpose (can be single or array, but not field-specific)
 export const multerUpload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024, files: 5 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024, files: 5 }, // 10MB, max 5 files
 });
 
 export const multerUploadVideo = multer({
@@ -55,3 +56,17 @@ export const multerUploadVideo = multer({
   fileFilter,
   limits: { fileSize: 50 * 1024 * 1024, files: 1 }, // 50MB
 });
+
+// NEW: For Sliders — multiple images, field name "images"
+export const sliderImagesUpload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 10 * 1024 * 1024, files: 10 }, // 10MB per file, up to 10 files
+}).array("images", 10);
+
+// NEW: For Banners — single image, field name "image"
+export const bannerImageUpload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+}).single("image");

@@ -210,6 +210,88 @@ class ProductController {
       res.status(400).json({ success: false, message: err.message });
     }
   }
+  async toggleProductMark(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { markType, value } = req.body;
+
+      const validMarkTypes = ['isInCatalogueList', 'isExclusive', 'isFeatured', 'isInWeekendDeals'];
+      if (!validMarkTypes.includes(markType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid mark type. Must be one of: isInCatalogueList, isExclusive, isFeatured, isInWeekendDeals"
+        });
+      }
+
+      const product = await productService.toggleProductMark(id, markType, value);
+      if (!product) {
+        return res.status(404).json({ success: false, message: "Product not found" });
+      }
+
+      res.json({
+        success: true,
+        message: `Product ${markType} updated successfully`,
+        data: product,
+      });
+    } catch (err: any) {
+      console.error("Toggle Product Mark Error:", err);
+      res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
+  async getProductsByMark(req: Request, res: Response) {
+    try {
+      const { markType } = req.params;
+
+      const validMarkTypes = ['isInCatalogueList', 'isExclusive', 'isFeatured', 'isInWeekendDeals'];
+      if (!validMarkTypes.includes(markType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid mark type. Must be one of: isInCatalogueList, isExclusive, isFeatured, isInWeekendDeals"
+        });
+      }
+
+      const products = await productService.getProductsByMark(markType as any);
+      res.json({
+        success: true,
+        message: `Products with ${markType} fetched successfully`,
+        data: products,
+      });
+    } catch (err: any) {
+      console.error("Get Products By Mark Error:", err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
+  async bulkToggleProductMarks(req: Request, res: Response) {
+    try {
+      const { productIds, markType, value } = req.body;
+
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "productIds must be a non-empty array"
+        });
+      }
+
+      const validMarkTypes = ['isInCatalogueList', 'isExclusive', 'isFeatured', 'isInWeekendDeals'];
+      if (!validMarkTypes.includes(markType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid mark type. Must be one of: isInCatalogueList, isExclusive, isFeatured, isInWeekendDeals"
+        });
+      }
+
+      const result = await productService.bulkToggleProductMarks(productIds, markType, value);
+      res.json({
+        success: true,
+        message: `${result.modifiedCount} products updated successfully`,
+        data: result,
+      });
+    } catch (err: any) {
+      console.error("Bulk Toggle Product Marks Error:", err);
+      res.status(400).json({ success: false, message: err.message });
+    }
+  }
 }
 
 export const productController = new ProductController();

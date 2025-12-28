@@ -105,6 +105,39 @@ class ProductService {
       userId: undefined,
     }));
   }
+  async toggleProductMark(
+    id: string,
+    markType: 'isInCatalogueList' | 'isExclusive' | 'isFeatured' | 'isInWeekendDeals',
+    value: boolean
+  ): Promise<IProduct | null> {
+    return ProductModel.findByIdAndUpdate(
+      id,
+      { [markType]: value },
+      { new: true }
+    )
+      .populate("userId", "name email role")
+      .exec();
+  }
+
+  async getProductsByMark(
+    markType: 'isInCatalogueList' | 'isExclusive' | 'isFeatured' | 'isInWeekendDeals'
+  ): Promise<IProduct[]> {
+    return ProductModel.find({ [markType]: true })
+      .populate("userId", "name email role")
+      .populate("productCategory", "categoryName")
+      .exec();
+  }
+
+  async bulkToggleProductMarks(
+    productIds: string[],
+    markType: 'isInCatalogueList' | 'isExclusive' | 'isFeatured' | 'isInWeekendDeals',
+    value: boolean
+  ): Promise<any> {
+    return ProductModel.updateMany(
+      { _id: { $in: productIds } },
+      { [markType]: value }
+    ).exec();
+  }
 }
 
 export const productService = new ProductService();

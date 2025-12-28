@@ -414,4 +414,109 @@ router.delete(
   productController.deleteProduct
 );
 
+/**
+ * @swagger
+ * /products/marks/bulk:
+ *   patch:
+ *     summary: Bulk toggle product marks (admin feature)
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - productIds
+ *               - markType
+ *               - value
+ *             properties:
+ *               productIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               markType:
+ *                 type: string
+ *                 enum: [isInCatalogueList, isExclusive, isFeatured, isInWeekendDeals]
+ *               value:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Products marks updated successfully
+ */
+router.patch(
+  "/marks/bulk",
+  verifyToken,
+  authorizeRoles("ADMIN"),
+  productController.bulkToggleProductMarks
+);
+
+/**
+ * @swagger
+ * /products/marks/{markType}/list:
+ *   get:
+ *     summary: Get products by mark type
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: markType
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [isInCatalogueList, isExclusive, isFeatured, isInWeekendDeals]
+ *     responses:
+ *       200:
+ *         description: Products fetched successfully
+ */
+router.get(
+  "/marks/:markType/list",
+  verifyToken,
+  authorizeRoles("ADMIN"),
+  productController.getProductsByMark
+);
+
+/**
+ * @swagger
+ * /products/marks/{id}:
+ *   patch:
+ *     summary: Toggle product mark (admin feature)
+ *     tags: [Products]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - markType
+ *               - value
+ *             properties:
+ *               markType:
+ *                 type: string
+ *                 enum: [isInCatalogueList, isExclusive, isFeatured, isInWeekendDeals]
+ *               value:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Product mark updated successfully
+ */
+router.patch(
+  "/marks/:id",
+  verifyToken,
+  authorizeRoles("ADMIN"),
+  productController.toggleProductMark
+);
+
 export const ProductRoutes = router;

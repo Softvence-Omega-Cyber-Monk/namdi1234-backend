@@ -31,6 +31,10 @@ export interface IProduct extends Document {
   createdAt: Date;
   updatedAt: Date;
   userId: Schema.Types.ObjectId;
+  isInCatalogueList: boolean;
+  isExclusive: boolean;
+  isFeatured: boolean;
+  isInWeekendDeals: boolean;
   avgRating?: number;
   soldUnits?: number;
 }
