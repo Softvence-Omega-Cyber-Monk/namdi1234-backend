@@ -28,6 +28,7 @@ import { paystackWebhook } from "./app/modules/payments/payments.controller";
 import { BlogRoutes } from "./app/modules/blog/blog.routes";
 import { SliderBannerRoutes } from "./app/modules/slider-banner/sliderBanner.routes";
 import { TestimonialRoutes } from "./app/modules/testimonial/testimonial.routes";
+import { EnergyUsageRoutes } from "./app/modules/energyUsage/energyUsage.routes";
 
 dotenv.config();
 
@@ -81,6 +82,7 @@ app.use("/api/v1/payments", paystackRouter)
 app.use("/api/v1/blogs", BlogRoutes)
 app.use("/api/v1/cms", SliderBannerRoutes);
 app.use("/api/v1/tst",TestimonialRoutes);
+app.use('/api/v1/energy-usage', EnergyUsageRoutes);
 
 
 
