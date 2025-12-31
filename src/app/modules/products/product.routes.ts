@@ -448,8 +448,6 @@ router.delete(
  */
 router.patch(
   "/marks/bulk",
-  verifyToken,
-  authorizeRoles("ADMIN"),
   productController.bulkToggleProductMarks
 );
 
@@ -474,8 +472,6 @@ router.patch(
  */
 router.get(
   "/marks/:markType/list",
-  verifyToken,
-  authorizeRoles("ADMIN"),
   productController.getProductsByMark
 );
 
@@ -514,8 +510,6 @@ router.get(
  */
 router.patch(
   "/marks/:id",
-  verifyToken,
-  authorizeRoles("ADMIN"),
   productController.toggleProductMark
 );
 
