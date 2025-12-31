@@ -46,8 +46,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5174",
-      "https://mditems.com",
-      "https://fahadpervez-client.vercel.app",
+      "https://zesty-melomakarona-168905.netlify.app"
     ],
     credentials: true,
   })
