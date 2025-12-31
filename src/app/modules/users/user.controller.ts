@@ -5,7 +5,7 @@ const getCookieOptions = (maxAge: number): CookieOptions => {
   return {
     httpOnly: true,
     secure: true,
-    sameSite: "none" as CookieOptions["sameSite"],
+    sameSite: "lax",
     maxAge: maxAge,
   };
 };
