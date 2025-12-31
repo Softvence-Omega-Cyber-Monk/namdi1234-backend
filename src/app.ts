@@ -29,6 +29,7 @@ import { BlogRoutes } from "./app/modules/blog/blog.routes";
 import { SliderBannerRoutes } from "./app/modules/slider-banner/sliderBanner.routes";
 import { TestimonialRoutes } from "./app/modules/testimonial/testimonial.routes";
 import { EnergyUsageRoutes } from "./app/modules/energyUsage/energyUsage.routes";
+import { CountdownRoutes } from "./app/modules/countdown/countdown.routes";
 
 dotenv.config();
 
@@ -83,6 +84,7 @@ app.use("/api/v1/blogs", BlogRoutes)
 app.use("/api/v1/cms", SliderBannerRoutes);
 app.use("/api/v1/tst",TestimonialRoutes);
 app.use('/api/v1/energy-usage', EnergyUsageRoutes);
+app.use('/api/v1/countdown', CountdownRoutes);
 
 
 
